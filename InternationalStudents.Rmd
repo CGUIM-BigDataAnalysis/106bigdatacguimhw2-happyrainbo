@@ -1,7 +1,7 @@
 ---
 title: "106-2 大數據分析方法 作業二"
 output: github_document
-author: Yi-Ju Tseng
+author: B0444102嚴信虹
 ---
 
 作業完整說明[連結](https://docs.google.com/document/d/1aLGSsGXhgOVgwzSg9JdaNz2qGPQJSoupDAQownkGf_I/edit?usp=sharing)
@@ -12,54 +12,221 @@ author: Yi-Ju Tseng
 
 ## 來台境外生分析
 ### 資料匯入與處理
-```{r dataloadToTWN}
-#這是R Code Chunk
+```{r dataloadToTWN,warning=F,message=F}
+#載入package
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(rgdal)
+library(rgeos)
+library(maptools)
+library(RColorBrewer)
+library(jsonlite)
+
+#讀取資料
+overseasStudentCountry103<-read_csv("http://stats.moe.gov.tw/files/detail/103/103_ab103_C.csv")
+overseasStudentCountry104<-read_csv("http://stats.moe.gov.tw/files/detail/104/104_ab104_C.csv")
+overseasStudentCountry105<-read_csv("http://stats.moe.gov.tw/files/detail/105/105_ab105_C.csv")
+overseasStudentCountry106<-read_csv("http://stats.moe.gov.tw/files/detail/106/106_ab105_C.csv")
+overseasStudentSchool103<-read_csv("http://stats.moe.gov.tw/files/detail/103/103_ab103_S.csv")
+overseasStudentSchool104<-read_csv("http://stats.moe.gov.tw/files/detail/104/104_ab104_S.csv")
+overseasStudentSchool105<-read_csv("http://stats.moe.gov.tw/files/detail/105/105_ab105_S.csv")
+overseasStudentSchool106<-read_csv("http://stats.moe.gov.tw/files/detail/106/106_ab105_S.csv")
+
+#欄位名稱處理_國別資料
+ColName<-colnames(overseasStudentCountry103)
+ColName<-gsub("-","_",ColName)
+colnames(overseasStudentCountry103)<-ColName
+colnames(overseasStudentCountry104)<-ColName
+
+#表格合併_國別資料
+overseasStudentCountry<-rbind(overseasStudentCountry103,
+                              overseasStudentCountry104,
+                              overseasStudentCountry105,
+                              overseasStudentCountry106)
+
+#欄位名稱處理_校別資料
+ColName<-colnames(overseasStudentSchool103)
+ColName<-gsub("-","_",ColName)
+colnames(overseasStudentSchool103)<-ColName
+colnames(overseasStudentSchool104)<-ColName
+
+#表格合併_校別資料
+overseasStudentSchool<-rbind(overseasStudentSchool103,
+                             overseasStudentSchool104,
+                             overseasStudentSchool105,
+                             overseasStudentSchool106)
+
+#資料清洗和字串轉數字_校別資料
+overseasStudentSchool$非學位生_大陸研修生<-gsub("…","NA",overseasStudentSchool$非學位生_大陸研修生)
+overseasStudentSchool$非學位生_大陸研修生<-as.numeric(overseasStudentSchool$非學位生_大陸研修生)
 ```
 
 ### 哪些國家來台灣唸書的學生最多呢？ 
-```{r ToTWNCountry}
-#這是R Code Chunk
-head(iris)
-knitr::kable(head(iris))
-library(knitr)
-kable(head(iris))
+```{r ToTWNCountry,warning=F}
+ToTWNCountry<-overseasStudentCountry%>%
+  mutate(總數=學位生_正式修讀學位外國生+
+              `學位生_僑生(含港澳)`+
+              學位生_正式修讀學位陸生+
+              非學位生_外國交換生+
+              非學位生_外國短期研習及個人選讀+
+              非學位生_大專附設華語文中心學生+
+              非學位生_大陸研修生+
+              非學位生_海青班+
+              境外專班)%>%
+  group_by(國別)%>%
+  summarise(總人數=sum(總數))%>%
+  arrange(desc(總人數))
+
+#顯示結果前10筆
+knitr::kable(head(ToTWNCountry,10))
+
 ```
 
 ### 哪間大學的境外生最多呢？
 ```{r ToTWNUniversity}
-#這是R Code Chunk
+ToTWNUniversity<-overseasStudentSchool%>%
+  mutate(總數=rowSums(.[4:12],na.rm=T))%>%
+  group_by(學校名稱)%>%
+  summarise(總人數=sum(總數))%>%
+  arrange(desc(總人數))
+
+#顯示結果前10筆
+knitr::kable(head(ToTWNUniversity,10))
 ```
 
 ### 各個國家來台灣唸書的學生人數條狀圖
-```{r ToTWNCountryBar}
-#這是R Code Chunk
+```{r ToTWNCountryBar,message=F}
+#總人數排序後，第20位之後的國家的總人數加總為其他
+ToTWNCountry_20Row<-rbind(top_n(ToTWNCountry,19), #前19位
+                          slice(ToTWNCountry,20:n())%>% #20位之後
+                            summarise(國別="其他",總人數=sum(總人數)))
+
+ToTWNCountryBar<-ToTWNCountry_20Row%>%
+  ggplot(aes(x=reorder(國別,-總人數),y=總人數))+
+  geom_bar(stat="identity")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.4))+
+  labs(x="國別")
+
+#顯示結果
+ToTWNCountryBar
 ```
 
 ### 各個國家來台灣唸書的學生人數面量圖
-```{r ToTWNCountryMap}
-#這是R Code Chunk
+```{r ToTWNCountryMap,warning=F,message=F}
+#讀取shapefile
+worldMap<-readShapeSpatial("ne_110m_admin_0_countries/ne_110m_admin_0_countries.shp")
+
+#shapefile轉為data.frame
+worldMap.df<-fortify(worldMap)
+
+#字串轉數字
+worldMap.df$id<-as.numeric(worldMap.df$id)
+
+#建立表格，包含地區名稱、地區ISO3碼、地區id
+mydata<-data.frame(Name=worldMap$NAME_LONG,ISO3=worldMap$ISO_A3,id=seq(0,length(worldMap$ISO_A3)-1))
+
+#因子轉字串和補遺漏值
+mydata$ISO3<-as.character(mydata$ISO3)
+mydata$ISO3[56]<-"FRA"
+mydata$ISO3[119]<-"NOR"
+
+#地圖資料合併表格(以id為依據，新增地圖名稱欄位、地區ISO3碼欄位)
+worldMap.df<-left_join(worldMap.df,mydata,by="id")
+
+#讀取國家中英對照表
+countryName<-fromJSON("countries.json")
+
+#國家中英對照表處理(對照表和開放資料的中文地區名稱不一致，以開放資料的地區名稱為依據，修改對照表的地區名稱)
+index<-c(2,13,17,40,48,55,73,98,119,120,122,143,153,160,166,177,191,195,199,204,207,209,227,228,229,238)
+Name<-c("阿拉伯聯合大公國","澳大利亞","波士尼亞與赫塞哥維納","剛果民主共和國","中國大陸","賽普勒斯","密克羅尼西亞",
+        "克羅埃西亞","葛摩聯盟","聖克里斯多福","南韓","馬紹爾群島共和國","馬爾他","納米比亞","納戈爾諾-卡拉巴赫",
+        "巴布亞紐幾內亞","塞爾維亞共和國","索羅門群島","新加坡","獅子山共和國","索馬利亞民主共和國","南蘇丹共和國",
+        "千里達","吐瓦魯","臺灣","聖文森")
+countryName$Taiwan[index]<-Name
+
+#地區資料合併國家中英對照表(以ISO3碼為依據，主要目的為新增中文地區名稱欄位)
+worldMap.df<-left_join(worldMap.df,countryName,by="ISO3")
+
+#地區資料選取會用到的欄位
+worldMap.df<-worldMap.df%>%
+  select(long:ISO3,Taiwan)
+
+#欄位名稱處理
+colnames(worldMap.df)[10]<-"國別" 
+
+#地區資料合併開放資料為最終資料(以國別為依據，新增總人數欄位)
+final.data<-left_join(worldMap.df,ToTWNCountry,by="國別")
+
+ToTWNCountryMap<-ggplot()+
+  geom_polygon(data=final.data,aes(x=long,y=lat,group=group,fill=總人數),color="black",size=0.25)+
+  coord_quickmap()+
+  scale_fill_gradientn(colours=brewer.pal(7,"Blues"))+
+  theme_void()
+
+#顯示結果，灰色區域為無資料
+ToTWNCountryMap
 ```
 
 ## 台灣學生國際交流分析
 
 ### 資料匯入與處理
-```{r dataloadFromTWN}
-#這是R Code Chunk
+```{r dataloadFromTWN,warning=F,message=F}
+#讀取資料
+#大專校院本國學生出國進修交流數
+localStudent<-read_csv("Student_RPT.csv",skip=2)
+
+#欄位名稱處理
+ColName<-c("學年度","學期","學校設立別","學校類別","學校代碼","學校名稱","系所代碼","系所名稱","學制","對方學校國別",
+          "對方學校中文名稱","對方學校英文名稱","本國學生出國進修、交流人數小計","本國學生出國進修、交流人數_男",
+          "本國學生出國進修、交流人數_女")
+colnames(localStudent)<-ColName
+
+#刪除統計說明
+localStudent<-localStudent[1:35020,]
 ```
 
 ### 台灣大專院校的學生最喜歡去哪些國家進修交流呢？
 ```{r FromTWNCountry}
-#這是R Code Chunk
+FromTWNCountry<-localStudent%>%
+  filter(學年度>=103)%>%
+  group_by(對方學校國別)%>%
+  summarise(人數=sum(`本國學生出國進修、交流人數小計`))%>%
+  arrange(desc(人數))
+
+#顯示結果前10筆
+knitr::kable(head(FromTWNCountry,10))
 ```
 
 ### 哪間大學的出國交流學生數最多呢？
 ```{r FromTWNUniversity}
-#這是R Code Chunk
+FromTWNUniversity<-localStudent%>%
+  filter(學年度>=103)%>%
+  group_by(學校名稱)%>%
+  summarise(人數=sum(`本國學生出國進修、交流人數小計`))%>%
+  arrange(desc(人數))
+
+#顯示結果前10筆
+knitr::kable(head(FromTWNUniversity,10))
 ```
 
 ### 台灣大專院校的學生最喜歡去哪些國家進修交流條狀圖
-```{r FromTWNCountryBar}
-#這是R Code Chunk
+```{r FromTWNCountryBar,message=F}
+#人數排序後，第20位之後的學校的人數加總為其他
+FromTWNUniversity_20Row<-rbind(top_n(FromTWNUniversity,19), #前19位
+                               slice(FromTWNUniversity,20:n())%>% #20位之後
+                                 summarise(學校名稱="其他",人數=sum(人數)))
+
+FromTWNCountryBar<-FromTWNUniversity_20Row%>%
+  ggplot(aes(x=reorder(學校名稱,-人數),y=人數))+
+  geom_bar(stat="identity")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.4))+
+  labs(x="學校名稱")
+
+#顯示結果
+FromTWNCountryBar
 ```
 
 ### 台灣大專院校的學生最喜歡去哪些國家進修交流面量圖
