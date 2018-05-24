@@ -7,6 +7,7 @@ library(rgeos)
 library(maptools)
 library(RColorBrewer)
 library(jsonlite)
+library(plotly)
 
 #讀取資料
 #大專校院境外學生人數統計
@@ -46,7 +47,7 @@ ToTWNCountry<-overseasStudentCountry%>%
   group_by(國別)%>%
   summarise(總人數=sum(總數))%>%
   arrange(desc(總人數))
-
+head(ToTWNCountry)
 #第一題_後
 #欄位名稱處理
 ColName<-colnames(overseasStudentSchool103)
@@ -67,8 +68,8 @@ ToTWNUniversity<-overseasStudentSchool%>%
   mutate(總數=rowSums(.[4:12],na.rm=T))%>%
   group_by(學校名稱)%>%
   summarise(總人數=sum(總數))%>%
-  arrange(desc(總人數))
-
+  arrange(desc(總人數))%>%
+  filter(總人數<90000)
 #第二題
 ToTWNCountry_20Row<-rbind(top_n(ToTWNCountry,19),
                           slice(ToTWNCountry,20:n())%>%
@@ -129,12 +130,155 @@ ColName<-c("學年度","學期","學校設立別","學校類別","學校代碼",
 colnames(localStudent)<-ColName
 #刪除統計說明
 localStudent<-localStudent[1:35020,]
-
-FromTWNCountry<-localStudent%>%
+#資料整理
+mydata<-localStudent%>%
   filter(學年度>=103)%>%
   group_by(對方學校國別)%>%
   summarise(人數=sum(`本國學生出國進修、交流人數小計`))%>%
+  arrange(對方學校國別)
+#土耳其、土耳其共和國
+mydata<-rbind(mydata[grepl("土耳其",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="土耳其",人數=sum(人數)),
+              mydata[!grepl("土耳其",mydata$對方學校國別),])
+#大陸地區、中國大陸
+mydata<-rbind(mydata[grepl("大陸",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="中國大陸",人數=sum(人數)),
+              mydata[!grepl("大陸",mydata$對方學校國別),])
+#丹麥、丹麥王國
+mydata<-rbind(mydata[grepl("丹麥",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="丹麥",人數=sum(人數)),
+              mydata[!grepl("丹麥",mydata$對方學校國別),])
+#巴拿馬、巴拿馬共和國
+mydata<-rbind(mydata[grepl("巴拿馬",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="巴拿馬",人數=sum(人數)),
+              mydata[!grepl("巴拿馬",mydata$對方學校國別),])
+#比利時，比利時王國
+mydata<-rbind(mydata[grepl("比利時",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="比利時",人數=sum(人數)),
+              mydata[!grepl("比利時",mydata$對方學校國別),])
+#立陶宛、立陶宛共和國
+mydata<-rbind(mydata[grepl("立陶宛",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="立陶宛",人數=sum(人數)),
+              mydata[!grepl("立陶宛",mydata$對方學校國別),])
+#印尼、印度尼西亞共和國
+mydata<-rbind(mydata[grepl("印尼|印度尼西亞",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="印尼",人數=sum(人數)),
+              mydata[!grepl("印尼|印度尼西亞",mydata$對方學校國別),])
+#印度、印度共和國
+mydata<-rbind(mydata[grepl("印度",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="印度",人數=sum(人數)),
+              mydata[!grepl("印度",mydata$對方學校國別),])
+#西班牙、西班牙共和國
+mydata<-rbind(mydata[grepl("西班牙",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="西班牙",人數=sum(人數)),
+              mydata[!grepl("西班牙",mydata$對方學校國別),])
+#希臘、希臘共和國
+mydata<-rbind(mydata[grepl("希臘",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="希臘",人數=sum(人數)),
+              mydata[!grepl("希臘",mydata$對方學校國別),])
+#汶萊、汶萊和平之國
+mydata<-rbind(mydata[grepl("汶萊",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="汶萊",人數=sum(人數)),
+              mydata[!grepl("汶萊",mydata$對方學校國別),])
+#拉脫維亞、拉脫維亞共和國
+mydata<-rbind(mydata[grepl("拉脫維亞",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="拉脫維亞",人數=sum(人數)),
+              mydata[!grepl("拉脫維亞",mydata$對方學校國別),])
+#波蘭、波瀾共和國
+mydata<-rbind(mydata[grepl("波蘭",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="波蘭",人數=sum(人數)),
+              mydata[!grepl("波蘭",mydata$對方學校國別),])
+#芬蘭、芬蘭共和國
+mydata<-rbind(mydata[grepl("芬蘭",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="芬蘭",人數=sum(人數)),
+              mydata[!grepl("芬蘭",mydata$對方學校國別),])
+#俄羅斯、俄羅斯聯邦
+mydata<-rbind(mydata[grepl("俄羅斯",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="俄羅斯",人數=sum(人數)-1),
+              mydata[!grepl("俄羅斯",mydata$對方學校國別),],
+              c("白俄羅斯共和國",1))
+mydata$人數<-as.numeric(mydata$人數)
+#南非、南非共和國
+mydata<-rbind(mydata[grepl("南非",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="南非",人數=sum(人數)),
+              mydata[!grepl("南非",mydata$對方學校國別),])
+#柬埔寨、柬埔寨王國
+mydata<-rbind(mydata[grepl("柬埔寨",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="柬埔寨",人數=sum(人數)),
+              mydata[!grepl("柬埔寨",mydata$對方學校國別),])
+#挪威、挪威王國
+mydata<-rbind(mydata[grepl("挪威",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="挪威",人數=sum(人數)),
+              mydata[!grepl("挪威",mydata$對方學校國別),])
+#泰王國、泰國
+mydata<-rbind(mydata[grepl("泰國",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="泰國",人數=sum(人數)),
+              mydata[!grepl("泰國",mydata$對方學校國別),])
+#捷克、捷克共和國
+mydata<-rbind(mydata[grepl("捷克",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="捷克",人數=sum(人數)),
+              mydata[!grepl("捷克",mydata$對方學校國別),])
+#荷蘭、荷蘭王國
+mydata<-rbind(mydata[grepl("荷蘭",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="荷蘭",人數=sum(人數)),
+              mydata[!grepl("荷蘭",mydata$對方學校國別),])
+#斯洛維尼亞、斯洛維尼亞共和國
+mydata<-rbind(mydata[grepl("斯洛維尼亞",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="斯洛維尼亞",人數=sum(人數)),
+              mydata[!grepl("斯洛維尼亞",mydata$對方學校國別),])
+#菲律賓、菲律賓共和國
+mydata<-rbind(mydata[grepl("菲律賓",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="菲律賓",人數=sum(人數)),
+              mydata[!grepl("菲律賓",mydata$對方學校國別),])
+#越南、越南社會主義共和國
+mydata<-rbind(mydata[grepl("越南",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="越南",人數=sum(人數)),
+              mydata[!grepl("越南",mydata$對方學校國別),])
+#奧地利、奧地利共和國
+mydata<-rbind(mydata[grepl("奧地利",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="奧地利",人數=sum(人數)),
+              mydata[!grepl("奧地利",mydata$對方學校國別),])
+#愛沙尼亞、愛沙尼亞共和國
+mydata<-rbind(mydata[grepl("愛沙尼亞",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="愛沙尼亞",人數=sum(人數)),
+              mydata[!grepl("愛沙尼亞",mydata$對方學校國別),])
+#愛爾蘭、愛爾蘭共和國
+mydata<-rbind(mydata[grepl("愛爾蘭",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="愛爾蘭",人數=sum(人數)),
+              mydata[!grepl("愛爾蘭",mydata$對方學校國別),])
+#新加坡、新加坡共和國
+mydata<-rbind(mydata[grepl("新加坡",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="新加坡",人數=sum(人數)),
+              mydata[!grepl("新加坡",mydata$對方學校國別),])
+#瑞典、瑞典王國
+mydata<-rbind(mydata[grepl("瑞典",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="瑞典",人數=sum(人數)),
+              mydata[!grepl("瑞典",mydata$對方學校國別),])
+#義大利、義大利共和國
+mydata<-rbind(mydata[grepl("義大利",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="義大利",人數=sum(人數)),
+              mydata[!grepl("義大利",mydata$對方學校國別),])
+#葡萄牙、葡萄牙共和國
+mydata<-rbind(mydata[grepl("葡萄牙",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="葡萄牙",人數=sum(人數)),
+              mydata[!grepl("葡萄牙",mydata$對方學校國別),])
+#蒙古、蒙古國
+mydata<-rbind(mydata[grepl("蒙古",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="蒙古",人數=sum(人數)),
+              mydata[!grepl("蒙古",mydata$對方學校國別),])
+#德國、德意志聯邦共和國
+mydata<-rbind(mydata[grepl("德國|德意志",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="德國",人數=sum(人數)),
+              mydata[!grepl("德國|德意志",mydata$對方學校國別),])
+#大韓民國(南韓)、南韓
+mydata<-rbind(mydata[grepl("南韓",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="南韓",人數=sum(人數)),
+              mydata[!grepl("南韓",mydata$對方學校國別),])
+
+FromTWNCountry<-mydata%>%
   arrange(desc(人數))
+colnames(FromTWNCountry)[1]<-"國別"
+
 head(FromTWNCountry,10)
 
 #第四題_後
@@ -146,15 +290,15 @@ FromTWNUniversity<-localStudent%>%
 head(FromTWNUniversity,10)
 
 #第五題
-FromTWNUniversity_20Row<-rbind(top_n(FromTWNUniversity,19),
-                               slice(FromTWNUniversity,20:n())%>%
-                                 summarise(學校名稱="其他",人數=sum(人數)))
-FromTWNCountryBar<-FromTWNUniversity_20Row%>%
-  ggplot(aes(x=reorder(學校名稱,-人數),y=人數))+
+FromTWNCountry_20Row<-rbind(top_n(FromTWNCountry,19),
+                               slice(FromTWNCountry,20:n())%>%
+                                 summarise(國別="其他",人數=sum(人數)))
+FromTWNCountryBar<-FromTWNCountry_20Row%>%
+  ggplot(aes(x=reorder(國別,-人數),y=人數))+
   geom_bar(stat="identity")+
   theme_bw()+
   theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.4))+
-  labs(x="學校名稱")
+  labs(x="國別")
 
 FromTWNCountryBar
 
@@ -183,11 +327,9 @@ worldMap.df<-left_join(worldMap.df,mydata,by="id")
 countryName<-fromJSON("countries.json")
 
 #國家中英對照表處理(對照表和開放資料的中文地區名稱不一致，以開放資料的地區名稱為依據，修改對照表的地區名稱)
-index<-c(2,13,17,40,48,55,73,98,119,120,122,143,153,160,166,177,191,195,199,204,207,209,227,228,229,238)
-Name<-c("阿拉伯聯合大公國","澳大利亞","波士尼亞與赫塞哥維納","剛果民主共和國","中國大陸","賽普勒斯","密克羅尼西亞",
-        "克羅埃西亞","葛摩聯盟","聖克里斯多福","南韓","馬紹爾群島共和國","馬爾他","納米比亞","納戈爾諾-卡拉巴赫",
-        "巴布亞紐幾內亞","塞爾維亞共和國","索羅門群島","新加坡","獅子山共和國","索馬利亞民主共和國","南蘇丹共和國",
-        "千里達","吐瓦魯","臺灣","聖文森")
+index<-c(3,13,36,48,98,122,154,191,195,199)
+Name<-c("阿富汗伊斯蘭國","澳大利亞","白俄羅斯共和國","中國大陸","克羅埃西亞","南韓","模里西斯共和國",
+        "塞爾維亞共和國","所羅門群島","新加坡")
 countryName$Taiwan[index]<-Name
 
 #地區資料合併國家中英對照表(以ISO3碼為依據，主要目的為新增中文地區名稱欄位)
@@ -198,16 +340,19 @@ worldMap.df<-worldMap.df%>%
   select(long:ISO3,Taiwan)
 
 #欄位名稱處理
-colnames(worldMap.df)[10]<-"國別" 
+colnames(worldMap.df)[10]<-"對方學校國別" 
 
 #地區資料合併開放資料為最終資料(以國別為依據，新增總人數欄位)
-final.data<-left_join(worldMap.df,ToTWNCountry,by="國別")
+final.data<-left_join(worldMap.df,FromTWNCountry,by="國別")
 
-ToTWNCountryMap<-ggplot()+
-  geom_polygon(data=final.data,aes(x=long,y=lat,group=group,fill=總人數),color="black",size=0.25)+
+FromTWNCountryMap<-ggplot()+
+  geom_polygon(data=final.data,aes(x=long,y=lat,group=group,fill=人數),color="black",size=0.25)+
   coord_quickmap()+
   scale_fill_gradientn(colours=brewer.pal(7,"Blues"))+
   theme_void()
 
 #顯示結果，灰色區域為無資料
-ToTWNCountryMap
+FromTWNCountryMap
+ggplotly(FromTWNCountryMap)
+
+#第七題

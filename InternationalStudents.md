@@ -16,13 +16,14 @@ B0444102嚴信虹
 library(readr)
 library(dplyr)
 library(ggplot2)
+library(jsonlite)
 library(rgdal)
 library(rgeos)
 library(maptools)
 library(RColorBrewer)
-library(jsonlite)
 
 #讀取資料
+#大專校院境外學生人數統計
 overseasStudentCountry103<-read_csv("http://stats.moe.gov.tw/files/detail/103/103_ab103_C.csv")
 overseasStudentCountry104<-read_csv("http://stats.moe.gov.tw/files/detail/104/104_ab104_C.csv")
 overseasStudentCountry105<-read_csv("http://stats.moe.gov.tw/files/detail/105/105_ab105_C.csv")
@@ -102,7 +103,8 @@ ToTWNUniversity<-overseasStudentSchool%>%
   mutate(總數=rowSums(.[4:12],na.rm=T))%>%
   group_by(學校名稱)%>%
   summarise(總人數=sum(總數))%>%
-  arrange(desc(總人數))
+  arrange(desc(總人數))%>%
+  filter(總人數<90000) #刪除無法區分校別的列
 
 #顯示結果前10筆
 knitr::kable(head(ToTWNUniversity,10))
@@ -110,7 +112,6 @@ knitr::kable(head(ToTWNUniversity,10))
 
 | 學校名稱         | 總人數 |
 |:-----------------|:------:|
-| 無法區分校別     |  92586 |
 | 國立臺灣師範大學 |  22113 |
 | 國立臺灣大學     |  18199 |
 | 中國文化大學     |  16074 |
@@ -120,13 +121,14 @@ knitr::kable(head(ToTWNUniversity,10))
 | 國立成功大學     |  10982 |
 | 輔仁大學         |  9499  |
 | 逢甲大學         |  9474  |
+| 中原大學         |  7662  |
 
 ### 各個國家來台灣唸書的學生人數條狀圖
 
 ``` r
 #總人數排序後，第20位之後的國家的總人數加總為其他
-ToTWNCountry_20Row<-rbind(top_n(ToTWNCountry,19), #前19位
-                          slice(ToTWNCountry,20:n())%>% #20位之後
+ToTWNCountry_20Row<-rbind(top_n(ToTWNCountry,19), #取出前19位的列
+                          slice(ToTWNCountry,20:n())%>% #取出20位之後的列，合併為1列"其他"
                             summarise(國別="其他",總人數=sum(總人數)))
 
 ToTWNCountryBar<-ToTWNCountry_20Row%>%
@@ -154,7 +156,7 @@ worldMap.df<-fortify(worldMap)
 #字串轉數字
 worldMap.df$id<-as.numeric(worldMap.df$id)
 
-#建立表格，包含地區名稱、地區ISO3碼、地區id
+#建立mydata，包含地區名稱、地區ISO3碼、地區id
 mydata<-data.frame(Name=worldMap$NAME_LONG,ISO3=worldMap$ISO_A3,id=seq(0,length(worldMap$ISO_A3)-1))
 
 #因子轉字串和補遺漏值
@@ -162,7 +164,7 @@ mydata$ISO3<-as.character(mydata$ISO3)
 mydata$ISO3[56]<-"FRA"
 mydata$ISO3[119]<-"NOR"
 
-#地圖資料合併表格(以id為依據，新增地圖名稱欄位、地區ISO3碼欄位)
+#地圖資料合併mydata(以id為依據，新增地圖名稱欄位、地區ISO3碼欄位)
 worldMap.df<-left_join(worldMap.df,mydata,by="id")
 
 #讀取國家中英對照表
@@ -212,9 +214,9 @@ ToTWNCountryMap
 localStudent<-read_csv("Student_RPT.csv",skip=2)
 
 #欄位名稱處理
-ColName<-c("學年度","學期","學校設立別","學校類別","學校代碼","學校名稱","系所代碼","系所名稱","學制","對方學校國別",
-          "對方學校中文名稱","對方學校英文名稱","本國學生出國進修、交流人數小計","本國學生出國進修、交流人數_男",
-          "本國學生出國進修、交流人數_女")
+ColName<-c("學年度","學期","學校設立別","學校類別","學校代碼","學校名稱","系所代碼","系所名稱","學制",
+           "對方學校國別","對方學校中文名稱","對方學校英文名稱","本國學生出國進修、交流人數小計",
+           "本國學生出國進修、交流人數_男","本國學生出國進修、交流人數_女")
 colnames(localStudent)<-ColName
 
 #刪除統計說明
@@ -224,28 +226,176 @@ localStudent<-localStudent[1:35020,]
 ### 台灣大專院校的學生最喜歡去哪些國家進修交流呢？
 
 ``` r
-FromTWNCountry<-localStudent%>%
+#取出國別和人數資料
+mydata<-localStudent%>%
   filter(學年度>=103)%>%
   group_by(對方學校國別)%>%
   summarise(人數=sum(`本國學生出國進修、交流人數小計`))%>%
+  arrange(對方學校國別)
+
+#國別名稱處理(合併名稱不同但為同一國家的欄位)
+#土耳其、土耳其共和國
+mydata<-rbind(mydata[grepl("土耳其",mydata$對方學校國別),]%>% #取出含有"土耳其"的列，合併為1列
+                summarise(對方學校國別="土耳其",人數=sum(人數)),
+              mydata[!grepl("土耳其",mydata$對方學校國別),]) #取出不含有"土耳其"的列
+#大陸地區、中國大陸
+mydata<-rbind(mydata[grepl("大陸",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="中國大陸",人數=sum(人數)),
+              mydata[!grepl("大陸",mydata$對方學校國別),])
+#丹麥、丹麥王國
+mydata<-rbind(mydata[grepl("丹麥",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="丹麥",人數=sum(人數)),
+              mydata[!grepl("丹麥",mydata$對方學校國別),])
+#巴拿馬、巴拿馬共和國
+mydata<-rbind(mydata[grepl("巴拿馬",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="巴拿馬",人數=sum(人數)),
+              mydata[!grepl("巴拿馬",mydata$對方學校國別),])
+#比利時，比利時王國
+mydata<-rbind(mydata[grepl("比利時",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="比利時",人數=sum(人數)),
+              mydata[!grepl("比利時",mydata$對方學校國別),])
+#立陶宛、立陶宛共和國
+mydata<-rbind(mydata[grepl("立陶宛",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="立陶宛",人數=sum(人數)),
+              mydata[!grepl("立陶宛",mydata$對方學校國別),])
+#印尼、印度尼西亞共和國
+mydata<-rbind(mydata[grepl("印尼|印度尼西亞",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="印尼",人數=sum(人數)),
+              mydata[!grepl("印尼|印度尼西亞",mydata$對方學校國別),])
+#印度、印度共和國
+mydata<-rbind(mydata[grepl("印度",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="印度",人數=sum(人數)),
+              mydata[!grepl("印度",mydata$對方學校國別),])
+#西班牙、西班牙共和國
+mydata<-rbind(mydata[grepl("西班牙",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="西班牙",人數=sum(人數)),
+              mydata[!grepl("西班牙",mydata$對方學校國別),])
+#希臘、希臘共和國
+mydata<-rbind(mydata[grepl("希臘",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="希臘",人數=sum(人數)),
+              mydata[!grepl("希臘",mydata$對方學校國別),])
+#汶萊、汶萊和平之國
+mydata<-rbind(mydata[grepl("汶萊",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="汶萊",人數=sum(人數)),
+              mydata[!grepl("汶萊",mydata$對方學校國別),])
+#拉脫維亞、拉脫維亞共和國
+mydata<-rbind(mydata[grepl("拉脫維亞",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="拉脫維亞",人數=sum(人數)),
+              mydata[!grepl("拉脫維亞",mydata$對方學校國別),])
+#波蘭、波瀾共和國
+mydata<-rbind(mydata[grepl("波蘭",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="波蘭",人數=sum(人數)),
+              mydata[!grepl("波蘭",mydata$對方學校國別),])
+#芬蘭、芬蘭共和國
+mydata<-rbind(mydata[grepl("芬蘭",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="芬蘭",人數=sum(人數)),
+              mydata[!grepl("芬蘭",mydata$對方學校國別),])
+#俄羅斯、俄羅斯聯邦
+mydata<-rbind(mydata[grepl("俄羅斯",mydata$對方學校國別),]%>% #會計算到"白俄羅斯共和國"的1人，人數加總後減1
+                summarise(對方學校國別="俄羅斯",人數=sum(人數)-1), 
+              mydata[!grepl("俄羅斯",mydata$對方學校國別),],
+              c("白俄羅斯共和國",1)) #補回"白俄羅斯共和國"的列
+#處理完俄羅斯後人數資料型態變為字串，進行字串轉數字
+mydata$人數<-as.numeric(mydata$人數)
+#南非、南非共和國
+mydata<-rbind(mydata[grepl("南非",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="南非",人數=sum(人數)),
+              mydata[!grepl("南非",mydata$對方學校國別),])
+#柬埔寨、柬埔寨王國
+mydata<-rbind(mydata[grepl("柬埔寨",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="柬埔寨",人數=sum(人數)),
+              mydata[!grepl("柬埔寨",mydata$對方學校國別),])
+#挪威、挪威王國
+mydata<-rbind(mydata[grepl("挪威",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="挪威",人數=sum(人數)),
+              mydata[!grepl("挪威",mydata$對方學校國別),])
+#泰王國、泰國
+mydata<-rbind(mydata[grepl("泰國",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="泰國",人數=sum(人數)),
+              mydata[!grepl("泰國",mydata$對方學校國別),])
+#捷克、捷克共和國
+mydata<-rbind(mydata[grepl("捷克",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="捷克",人數=sum(人數)),
+              mydata[!grepl("捷克",mydata$對方學校國別),])
+#荷蘭、荷蘭王國
+mydata<-rbind(mydata[grepl("荷蘭",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="荷蘭",人數=sum(人數)),
+              mydata[!grepl("荷蘭",mydata$對方學校國別),])
+#斯洛維尼亞、斯洛維尼亞共和國
+mydata<-rbind(mydata[grepl("斯洛維尼亞",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="斯洛維尼亞",人數=sum(人數)),
+              mydata[!grepl("斯洛維尼亞",mydata$對方學校國別),])
+#菲律賓、菲律賓共和國
+mydata<-rbind(mydata[grepl("菲律賓",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="菲律賓",人數=sum(人數)),
+              mydata[!grepl("菲律賓",mydata$對方學校國別),])
+#越南、越南社會主義共和國
+mydata<-rbind(mydata[grepl("越南",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="越南",人數=sum(人數)),
+              mydata[!grepl("越南",mydata$對方學校國別),])
+#奧地利、奧地利共和國
+mydata<-rbind(mydata[grepl("奧地利",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="奧地利",人數=sum(人數)),
+              mydata[!grepl("奧地利",mydata$對方學校國別),])
+#愛沙尼亞、愛沙尼亞共和國
+mydata<-rbind(mydata[grepl("愛沙尼亞",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="愛沙尼亞",人數=sum(人數)),
+              mydata[!grepl("愛沙尼亞",mydata$對方學校國別),])
+#愛爾蘭、愛爾蘭共和國
+mydata<-rbind(mydata[grepl("愛爾蘭",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="愛爾蘭",人數=sum(人數)),
+              mydata[!grepl("愛爾蘭",mydata$對方學校國別),])
+#新加坡、新加坡共和國
+mydata<-rbind(mydata[grepl("新加坡",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="新加坡",人數=sum(人數)),
+              mydata[!grepl("新加坡",mydata$對方學校國別),])
+#瑞典、瑞典王國
+mydata<-rbind(mydata[grepl("瑞典",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="瑞典",人數=sum(人數)),
+              mydata[!grepl("瑞典",mydata$對方學校國別),])
+#義大利、義大利共和國
+mydata<-rbind(mydata[grepl("義大利",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="義大利",人數=sum(人數)),
+              mydata[!grepl("義大利",mydata$對方學校國別),])
+#葡萄牙、葡萄牙共和國
+mydata<-rbind(mydata[grepl("葡萄牙",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="葡萄牙",人數=sum(人數)),
+              mydata[!grepl("葡萄牙",mydata$對方學校國別),])
+#蒙古、蒙古國
+mydata<-rbind(mydata[grepl("蒙古",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="蒙古",人數=sum(人數)),
+              mydata[!grepl("蒙古",mydata$對方學校國別),])
+#德國、德意志聯邦共和國
+mydata<-rbind(mydata[grepl("德國|德意志",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="德國",人數=sum(人數)),
+              mydata[!grepl("德國|德意志",mydata$對方學校國別),])
+#大韓民國(南韓)、南韓
+mydata<-rbind(mydata[grepl("南韓",mydata$對方學校國別),]%>%
+                summarise(對方學校國別="南韓",人數=sum(人數)),
+              mydata[!grepl("南韓",mydata$對方學校國別),])
+
+FromTWNCountry<-mydata%>%
   arrange(desc(人數))
+
+#欄位名稱修改
+colnames(FromTWNCountry)[1]<-"國別"
 
 #顯示結果前10筆
 knitr::kable(head(FromTWNCountry,10))
 ```
 
-| 對方學校國別 | 人數 |
-|:-------------|:----:|
-| 中國大陸     | 8375 |
-| 日本         | 7142 |
-| 美國         | 4427 |
-| 南韓         | 2050 |
-| 大陸地區     | 1516 |
-| 德國         | 1466 |
-| 法國         | 1258 |
-| 英國         |  742 |
-| 加拿大       |  689 |
-| 西班牙       |  642 |
+| 國別     | 人數 |
+|:---------|:----:|
+| 中國大陸 | 9891 |
+| 日本     | 7142 |
+| 美國     | 4427 |
+| 南韓     | 2565 |
+| 德國     | 1764 |
+| 法國     | 1258 |
+| 英國     |  742 |
+| 西班牙   |  721 |
+| 加拿大   |  689 |
+| 新加坡   |  673 |
 
 ### 哪間大學的出國交流學生數最多呢？
 
@@ -276,17 +426,17 @@ knitr::kable(head(FromTWNUniversity,10))
 ### 台灣大專院校的學生最喜歡去哪些國家進修交流條狀圖
 
 ``` r
-#人數排序後，第20位之後的學校的人數加總為其他
-FromTWNUniversity_20Row<-rbind(top_n(FromTWNUniversity,19), #前19位
-                               slice(FromTWNUniversity,20:n())%>% #20位之後
-                                 summarise(學校名稱="其他",人數=sum(人數)))
+#人數排序後，第20位之後的國別的人數加總為其他
+FromTWNCountry_20Row<-rbind(top_n(FromTWNCountry,19), #取出前19位的列
+                               slice(FromTWNCountry,20:n())%>% #取出20位之後的列，合併為1列"其他"
+                                 summarise(國別="其他",人數=sum(人數)))
 
-FromTWNCountryBar<-FromTWNUniversity_20Row%>%
-  ggplot(aes(x=reorder(學校名稱,-人數),y=人數))+
+FromTWNCountryBar<-FromTWNCountry_20Row%>%
+  ggplot(aes(x=reorder(國別,-人數),y=人數))+
   geom_bar(stat="identity")+
   theme_bw()+
   theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.4))+
-  labs(x="學校名稱")
+  labs(x="國別")
 
 #顯示結果
 FromTWNCountryBar
@@ -297,8 +447,59 @@ FromTWNCountryBar
 ### 台灣大專院校的學生最喜歡去哪些國家進修交流面量圖
 
 ``` r
-#這是R Code Chunk
+#讀取shapefile
+worldMap<-readShapeSpatial("ne_110m_admin_0_countries/ne_110m_admin_0_countries.shp")
+
+#shapefile轉為data.frame
+worldMap.df<-fortify(worldMap)
+
+#字串轉數字
+worldMap.df$id<-as.numeric(worldMap.df$id)
+
+#建立表格，包含地區名稱、地區ISO3碼、地區id
+mydata<-data.frame(Name=worldMap$NAME_LONG,ISO3=worldMap$ISO_A3,id=seq(0,length(worldMap$ISO_A3)-1))
+
+#因子轉字串和補遺漏值
+mydata$ISO3<-as.character(mydata$ISO3)
+mydata$ISO3[56]<-"FRA"
+mydata$ISO3[119]<-"NOR"
+
+#地圖資料合併表格(以id為依據，新增地圖名稱欄位、地區ISO3碼欄位)
+worldMap.df<-left_join(worldMap.df,mydata,by="id")
+
+#讀取國家中英對照表
+countryName<-fromJSON("countries.json")
+
+#國家中英對照表處理(對照表和開放資料的中文地區名稱不一致，以開放資料的地區名稱為依據，修改對照表的地區名稱)
+index<-c(3,13,36,48,98,122,154,191,195,199)
+Name<-c("阿富汗伊斯蘭國","澳大利亞","白俄羅斯共和國","中國大陸","克羅埃西亞","南韓","模里西斯共和國",
+        "塞爾維亞共和國","所羅門群島","新加坡")
+countryName$Taiwan[index]<-Name
+
+#地區資料合併國家中英對照表(以ISO3碼為依據，主要目的為新增中文地區名稱欄位)
+worldMap.df<-left_join(worldMap.df,countryName,by="ISO3")
+
+#地區資料選取會用到的欄位
+worldMap.df<-worldMap.df%>%
+  select(long:ISO3,Taiwan)
+
+#欄位名稱處理
+colnames(worldMap.df)[10]<-"國別" 
+
+#地區資料合併開放資料為最終資料(以國別為依據，新增人數欄位)
+final.data<-left_join(worldMap.df,FromTWNCountry,by="國別")
+
+FromTWNCountryMap<-ggplot()+
+  geom_polygon(data=final.data,aes(x=long,y=lat,group=group,fill=人數),color="black",size=0.25)+
+  coord_quickmap()+
+  scale_fill_gradientn(colours=brewer.pal(7,"Blues"))+
+  theme_void()
+
+#顯示結果，灰色區域為無資料
+FromTWNCountryMap
 ```
+
+![](InternationalStudents_files/figure-markdown_github/FromTWNCountryMap-1.png)
 
 台灣學生出國留學分析
 --------------------
