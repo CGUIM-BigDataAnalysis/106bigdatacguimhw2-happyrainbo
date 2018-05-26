@@ -1,0 +1,29 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1527355201212.000,
+    "dirty" : false,
+    "encoding" : "",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "FE30B1C4",
+    "lastKnownWriteTime" : 27303570963497060,
+    "last_content_update" : 1527355201212,
+    "path" : null,
+    "project_path" : null,
+    "properties" : {
+        "cacheKey" : "6E3413E",
+        "caption" : "FromTWNAb",
+        "contentUrl" : "grid_resource/gridviewer.html?env=&obj=FromTWNAb&cache_key=6E3413E",
+        "displayedObservations" : 29,
+        "environment" : "",
+        "object" : "FromTWNAb",
+        "preview" : 0,
+        "totalObservations" : 29,
+        "variables" : 2
+    },
+    "relative_order" : 4,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_dataframe"
+}

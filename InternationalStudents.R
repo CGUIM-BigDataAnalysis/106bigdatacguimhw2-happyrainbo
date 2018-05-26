@@ -19,8 +19,7 @@ overseasStudentSchool103<-read_csv("http://stats.moe.gov.tw/files/detail/103/103
 overseasStudentSchool104<-read_csv("http://stats.moe.gov.tw/files/detail/104/104_ab104_S.csv")
 overseasStudentSchool105<-read_csv("http://stats.moe.gov.tw/files/detail/105/105_ab105_S.csv")
 overseasStudentSchool106<-read_csv("http://stats.moe.gov.tw/files/detail/106/106_ab105_S.csv")
-#世界各主要國家之我國留學生人數統計表
-country<-read_csv("https://ws.moe.edu.tw/Download.ashx?u=C099358C81D4876CC7586B178A6BD6D5062C39FB76BDE7EC7685C1A3C0846BCDD2B4F4C2FE907C3E7E96F97D24487065577A728C59D4D9A4ECDFF432EA5A114C8B01E4AFECC637696DE4DAECA03BB417&n=4E402A02CE6F0B6C1B3C7E89FDA1FAD0B5DDFA6F3DA74E2DA06AE927F09433CFBC07A1910C169A1845D8EB78BD7D60D7414F74617F2A6B71DC86D17C9DA3781394EF5794EEA7363C&icon=..csv")
+
 
 #第一題_前
 #欄位名稱處理
@@ -356,3 +355,63 @@ FromTWNCountryMap
 ggplotly(FromTWNCountryMap)
 
 #第七題
+#世界各主要國家之我國留學生人數統計表
+country<-read_csv("https://ws.moe.edu.tw/Download.ashx?u=C099358C81D4876CC7586B178A6BD6D5062C39FB76BDE7EC7685C1A3C0846BCDD2B4F4C2FE907C3E7E96F97D24487065577A728C59D4D9A4ECDFF432EA5A114C8B01E4AFECC637696DE4DAECA03BB417&n=4E402A02CE6F0B6C1B3C7E89FDA1FAD0B5DDFA6F3DA74E2DA06AE927F09433CFBC07A1910C169A1845D8EB78BD7D60D7414F74617F2A6B71DC86D17C9DA3781394EF5794EEA7363C&icon=..csv")
+#資料處理
+country<-country[,1:3]
+
+FromTWNAb<-country%>%
+  select("國別","總人數")%>%
+  arrange(desc(總人數))
+head(FromTWNAb,10)
+
+#第八題
+#讀取shapefile
+worldMap<-readShapeSpatial("ne_110m_admin_0_countries/ne_110m_admin_0_countries.shp")
+
+#shapefile轉為data.frame
+worldMap.df<-fortify(worldMap)
+
+#字串轉數字
+worldMap.df$id<-as.numeric(worldMap.df$id)
+
+#建立表格，包含地區名稱、地區ISO3碼、地區id
+mydata<-data.frame(Name=worldMap$NAME_LONG,ISO3=worldMap$ISO_A3,id=seq(0,length(worldMap$ISO_A3)-1))
+
+#因子轉字串和補遺漏值
+mydata$ISO3<-as.character(mydata$ISO3)
+mydata$ISO3[56]<-"FRA"
+mydata$ISO3[119]<-"NOR"
+
+#地圖資料合併表格(以id為依據，新增地圖名稱欄位、地區ISO3碼欄位)
+worldMap.df<-left_join(worldMap.df,mydata,by="id")
+
+#讀取國家中英對照表
+countryName<-fromJSON("countries.json")
+
+#國家中英對照表處理(對照表和開放資料的中文地區名稱不一致，以開放資料的地區名稱為依據，修改對照表的地區名稱)
+index<-c(13,122,199)
+Name<-c("澳大利亞","南韓","新加坡")
+countryName$Taiwan[index]<-Name
+
+#地區資料合併國家中英對照表(以ISO3碼為依據，主要目的為新增中文地區名稱欄位)
+worldMap.df<-left_join(worldMap.df,countryName,by="ISO3")
+
+#地區資料選取會用到的欄位
+worldMap.df<-worldMap.df%>%
+  select(long:ISO3,Taiwan)
+
+#欄位名稱處理
+colnames(worldMap.df)[10]<-"國別" 
+
+#地區資料合併開放資料為最終資料(以國別為依據，新增總人數欄位)
+final.data<-left_join(worldMap.df,FromTWNAb,by="國別")
+
+FromTWNAbMap<-ggplot()+
+  geom_polygon(data=final.data,aes(x=long,y=lat,group=group,fill=總人數),color="black",size=0.25)+
+  coord_quickmap()+
+  scale_fill_gradientn(colours=brewer.pal(7,"Blues"))+
+  theme_void()
+
+#顯示結果，灰色區域為無資料
+FromTWNAbMap

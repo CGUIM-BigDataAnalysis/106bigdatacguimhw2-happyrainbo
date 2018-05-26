@@ -5,15 +5,15 @@
     "dirty" : false,
     "encoding" : "UTF-8",
     "folds" : "",
-    "hash" : "1839251273",
+    "hash" : "990644621",
     "id" : "A02387F6",
-    "lastKnownWriteTime" : 1527182637,
-    "last_content_update" : 1527182637404,
+    "lastKnownWriteTime" : 1527356099,
+    "last_content_update" : 1527356099465,
     "path" : "E:/Code/R/hw2/106bigdatacguimhw2-happyrainbo/InternationalStudents.Rmd",
     "project_path" : "InternationalStudents.Rmd",
     "properties" : {
-        "cursorPosition" : "428,28",
-        "scrollLine" : "400"
+        "cursorPosition" : "467,38",
+        "scrollLine" : "453"
     },
     "relative_order" : 5,
     "source_on_save" : false,
