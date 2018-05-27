@@ -415,3 +415,64 @@ FromTWNAbMap<-ggplot()+
 
 #顯示結果，灰色區域為無資料
 FromTWNAbMap
+
+#第九題
+#複製表格
+ToTW<-ToTWNCountry
+FromTW<-FromTWNCountry
+
+#欄位名稱處理
+ColName<-c("國別","人數")
+colnames(ToTW)<-ColName
+colnames(FromTW)<-ColName
+
+#表格合併，取來台的前20名國家和離台的前20名國家
+mydata<-rbind(top_n(ToTW,20),top_n(FromTW,20))
+
+#表格新增分類
+mydata$類別[1:20]<-"來台"
+mydata$類別[21:40]<-"離台"
+
+Analysis<-mydata%>%
+  ggplot(aes(x=國別,y=人數,fill=類別))+
+  geom_bar(stat="identity",width=0.7)+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.4))
+
+#顯示圖表
+Analysis
+
+#國別名稱修改
+ToTW$國別[88]<-"白俄羅斯共和國"
+ToTW$國別[155]<-"馬爾他共和國"
+ToTW$國別[117]<-"模里西斯共和國"
+
+#境外學生來台國家數
+nrow(ToTW)
+
+#台灣學生離台國家數
+nrow(FromTW)
+
+#國家總數
+mydata<-full_join(ToTW,FromTW,by="國別")
+nrow(mydata)
+
+#有境外學生來台又有台灣學生前往國家數
+mydata<-inner_join(ToTW,FromTW,by="國別")
+nrow(mydata)
+
+colnames(mydata)<-c("國別","來台人數","離台人數")
+
+Analysis.FromTo<-mydata%>%
+  mutate(離台來台人數比=離台人數/來台人數)%>%
+  arrange(desc(離台來台人數比))
+
+#顯示表格
+head(Analysis.FromTo,10)
+
+Analysis.ToFrom<-mydata%>%
+  mutate(來台離台人數比=來台人數/離台人數)%>%
+  arrange(desc(來台離台人數比))
+
+#顯示表格
+head(Analysis.ToFrom,10)
