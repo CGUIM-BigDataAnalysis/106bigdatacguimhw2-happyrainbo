@@ -194,7 +194,7 @@ final.data<-left_join(worldMap.df,ToTWNCountry,by="國別")
 ToTWNCountryMap<-ggplot()+
   geom_polygon(data=final.data,aes(x=long,y=lat,group=group,fill=總人數),color="black",size=0.25)+
   coord_quickmap()+
-  scale_fill_gradientn(colours=brewer.pal(7,"Blues"))+
+  scale_fill_gradientn(colours=brewer.pal(7,"OrRd"))+
   theme_void()
 
 #顯示結果，灰色區域為無資料
@@ -492,7 +492,7 @@ final.data<-left_join(worldMap.df,FromTWNCountry,by="國別")
 FromTWNCountryMap<-ggplot()+
   geom_polygon(data=final.data,aes(x=long,y=lat,group=group,fill=人數),color="black",size=0.25)+
   coord_quickmap()+
-  scale_fill_gradientn(colours=brewer.pal(7,"Blues"))+
+  scale_fill_gradientn(colours=brewer.pal(7,"OrRd"))+
   theme_void()
 
 #顯示結果，灰色區域為無資料
@@ -586,7 +586,7 @@ final.data<-left_join(worldMap.df,FromTWNAb,by="國別")
 FromTWNAbMap<-ggplot()+
   geom_polygon(data=final.data,aes(x=long,y=lat,group=group,fill=總人數),color="black",size=0.25)+
   coord_quickmap()+
-  scale_fill_gradientn(colours=brewer.pal(7,"Blues"))+
+  scale_fill_gradientn(colours=brewer.pal(7,"OrRd"))+
   theme_void()
 
 #顯示結果，灰色區域為無資料
@@ -621,7 +621,8 @@ Analysis<-mydata%>%
   ggplot(aes(x=國別,y=人數,fill=類別))+
   geom_bar(stat="identity",width=0.7)+
   theme_bw()+
-  theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.4))
+  theme(axis.text.x = element_text(angle = 90, hjust = 1,vjust=0.4))+
+  labs(x="國別(來台前20名和離台前20名)")
 
 #顯示圖表
 Analysis
@@ -666,7 +667,7 @@ nrow(mydata)
 
     ## [1] 79
 
-國家總數(有境外學生來台或台灣學生前往)：180個國家<br> 境外學生來台的國家總數：177個國家<br> 台灣學生前往的國家總數：82個國家<br> 有境外學生來台和台灣學生前往的國家總數：79個國家<br> <br> 有境外學生來台的國家的比例：98%<br> 有台灣學生前往的國家的比例：46%<br> 有台灣學生前往和境外學生來台的國家的比例：44%<br>
+國家總數(有境外學生來台或台灣學生前往)：180個國家<br> 境外學生來台的國家總數：177個國家<br> 台灣學生前往的國家總數：82個國家<br> 有境外學生來台和台灣學生前往的國家總數：79個國家<br> 有境外學生來台的國家的比例：98%<br> 有台灣學生前往的國家的比例：46%<br> 有台灣學生前往和境外學生來台的國家的比例：44%<br> 根據以上數據，來台讀書與離台讀書的來源國與留學國趨勢不太相同，只有約44%的國家有台灣學生前往和境外學生來台<br>
 
 ``` r
 #欄位名稱處理
@@ -717,4 +718,4 @@ knitr::kable(head(Analysis.ToFrom,10))
 | 斯里蘭卡       |    140   |     1    |    140.0000    |
 | 馬來西亞       |   62031  |    509   |    121.8684    |
 
-根據表格顯示:<br> 很多國家的境外學生來台的比例遠高於台灣學生前往的比例，在前10名中的比例都達到了100以上
+根據表格顯示:<br> 很多國家的境外學生來台的比例遠高於台灣學生前往的比例，在前10名中的比例都達到了100以上<br> 所以想來台灣念書的境外生，他們母國的台籍生並不多<br>

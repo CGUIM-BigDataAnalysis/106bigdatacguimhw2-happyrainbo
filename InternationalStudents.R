@@ -114,7 +114,7 @@ final.data<-left_join(worldMap.df,ToTWNCountry,by="國別")
 ToTWNCountryMap<-ggplot()+
   geom_polygon(data=final.data,aes(x=long,y=lat,group=group,fill=總人數),color="black",size=0.25)+
   coord_quickmap()+
-  scale_fill_gradientn(colours=brewer.pal(7,"Blues"))+
+  scale_fill_gradientn(colours=brewer.pal(7,"OrRd"))+
   theme_void()
 ToTWNCountryMap
 
